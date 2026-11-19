@@ -1,0 +1,407 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Connection verification document
+    match /test/{docId} {
+      allow get: if docId == 'connection';
+      allow list, write: if false;
+    }
+
+    // --- Primitive Helpers ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'itzz.nischit@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isVerifiedUser() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidCustomerStockPurchase(data, prev) {
+      return isVerifiedUser()
+        && data.diff(prev).affectedKeys().hasOnly(['stock', 'inStock', 'updatedAt', 'lastOrderId'])
+        && 'lastOrderId' in data
+        && isValidId(data.lastOrderId)
+        && (!('lastOrderId' in prev) || data.lastOrderId != prev.lastOrderId)
+        && (data.stock is int || data.stock is float)
+        && data.stock >= 0
+        && data.stock < prev.stock
+        && data.inStock == (data.stock > 0)
+        && getAfter(/databases/$(database)/documents/orders/$(data.lastOrderId)).data.userId == request.auth.uid
+        && getAfter(/databases/$(database)/documents/orders/$(data.lastOrderId)).data.status == 'pending'
+        && getAfter(/databases/$(database)/documents/orders/$(data.lastOrderId)).data.createdAt == request.time
+        && getAfter(/databases/$(database)/documents/orders/$(data.lastOrderId)).data.updatedAt == request.time;
+    }
+
+    // --- Validation Blueprints ---
+    function isValidProduct(data) {
+      return data.keys().hasAll([
+          'id', 'name', 'sku', 'category', 'price', 'unit', 'stock',
+          'description', 'specs', 'imageKey', 'inStock', 'featured',
+          'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'name', 'sku', 'category', 'price', 'unit', 'stock',
+          'description', 'specs', 'imageKey', 'imageUrl', 'inStock', 'featured',
+          'lastOrderId', 'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 120
+        && data.sku is string && data.sku.size() >= 2 && data.sku.size() <= 40
+        && data.category in [
+          'Microcontrollers', 'Sensors', 'Modules',
+          'Power & Relays', 'Passive & LEDs', 'College Kits'
+        ]
+        && (data.price is int || data.price is float) && data.price >= 1 && data.price <= 500000
+        && data.unit is string && data.unit.size() >= 1 && data.unit.size() <= 32
+        && (data.stock is int || data.stock is float) && data.stock >= 0 && data.stock <= 100000
+        && data.description is string && data.description.size() <= 600
+        && data.specs is string && data.specs.size() <= 200
+        && data.imageKey in [
+          'arduino', 'esp32', 'raspberrypi', 'hall_ultrasonic',
+          'microcontrollers', 'sensors', 'power', 'robotics', 'bench'
+        ]
+        && (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 120000))
+        && (!('lastOrderId' in data) || isValidId(data.lastOrderId))
+        && data.inStock is bool
+        && data.featured is bool
+        && isValidId(data.createdBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidProject(data) {
+      return data.keys().hasAll([
+          'id', 'title', 'domain', 'level', 'summary', 'componentsList',
+          'estimatedPrice', 'leadTimeDays', 'available', 'imageKey',
+          'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'title', 'domain', 'level', 'summary', 'componentsList',
+          'estimatedPrice', 'leadTimeDays', 'available', 'imageKey', 'imageUrl',
+          'createdBy', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.title is string && data.title.size() >= 3 && data.title.size() <= 140
+        && data.domain in ['IoT & WiFi', 'Robotics', 'Embedded', 'Power & Solar', 'Sensor Systems']
+        && data.level in ['School / Science', 'Diploma', 'BE / B.Tech']
+        && data.summary is string && data.summary.size() <= 600
+        && data.componentsList is list
+        && data.componentsList.size() >= 1 && data.componentsList.size() <= 12
+        && data.componentsList[0] is string
+        && data.componentsList[0].size() >= 2 && data.componentsList[0].size() <= 80
+        && (data.estimatedPrice is int || data.estimatedPrice is float)
+        && data.estimatedPrice >= 100 && data.estimatedPrice <= 500000
+        && (data.leadTimeDays is int || data.leadTimeDays is float)
+        && data.leadTimeDays >= 1 && data.leadTimeDays <= 30
+        && data.available is bool
+        && data.imageKey in [
+          'arduino', 'esp32', 'raspberrypi', 'hall_ultrasonic',
+          'robotics', 'microcontrollers', 'sensors', 'power', 'bench'
+        ]
+        && (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 120000))
+        && isValidId(data.createdBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll([
+          'id', 'orderNumber', 'userId', 'customerName', 'customerPhone',
+          'customerEmail', 'fulfillmentType', 'deliveryAddress',
+          'collegeProjectNotes', 'items', 'subtotal', 'deliveryFee',
+          'totalAmount', 'paymentMethod', 'status', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'orderNumber', 'userId', 'customerName', 'customerPhone',
+          'customerEmail', 'fulfillmentType', 'deliveryAddress',
+          'collegeProjectNotes', 'items', 'subtotal', 'deliveryFee',
+          'totalAmount', 'paymentMethod', 'status', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.orderNumber is string && data.orderNumber.size() >= 4 && data.orderNumber.size() <= 32
+        && isValidId(data.userId)
+        && data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 100
+        && data.customerPhone is string && data.customerPhone.size() >= 8 && data.customerPhone.size() <= 20
+        && data.customerEmail is string && data.customerEmail.size() <= 120
+        && data.fulfillmentType in ['pickup_kharadi', 'delivery_pune']
+        && data.deliveryAddress is string && data.deliveryAddress.size() <= 300
+        && data.collegeProjectNotes is string && data.collegeProjectNotes.size() <= 500
+        && data.items is list
+        && data.items.size() >= 1 && data.items.size() <= 25
+        && data.items[0] is map
+        && data.items[0].keys().hasAll(['productId', 'name', 'qty', 'price'])
+        && data.items[0].keys().hasOnly(['productId', 'name', 'qty', 'price', 'sku', 'unit'])
+        && data.items[0].productId is string && data.items[0].productId.size() >= 1 && data.items[0].productId.size() <= 128
+        && data.items[0].name is string && data.items[0].name.size() >= 1 && data.items[0].name.size() <= 140
+        && (data.items[0].qty is int || data.items[0].qty is float) && data.items[0].qty >= 1 && data.items[0].qty <= 1000
+        && (data.items[0].price is int || data.items[0].price is float) && data.items[0].price >= 1 && data.items[0].price <= 500000
+        && (data.subtotal is int || data.subtotal is float) && data.subtotal >= 1 && data.subtotal <= 5000000
+        && (data.deliveryFee is int || data.deliveryFee is float) && data.deliveryFee >= 0 && data.deliveryFee <= 5000
+        && (data.totalAmount is int || data.totalAmount is float) && data.totalAmount >= 1
+        && data.totalAmount == data.subtotal + data.deliveryFee
+        && data.paymentMethod in ['pay_at_shop', 'cod_pune', 'upi_on_delivery']
+        && data.status in ['pending', 'confirmed', 'packing', 'ready', 'completed', 'cancelled']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll([
+          'uid', 'displayName', 'phone', 'defaultAddress', 'collegeName', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'displayName', 'phone', 'defaultAddress', 'collegeName', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100
+        && data.phone is string && data.phone.size() <= 20
+        && data.defaultAddress is string && data.defaultAddress.size() <= 300
+        && data.collegeName is string && data.collegeName.size() <= 120
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAdminRecord(data) {
+      return data.keys().hasAll(['uid', 'email', 'label', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'email', 'label', 'createdAt'])
+        && isValidId(data.uid)
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 120
+        && data.label is string && data.label.size() >= 2 && data.label.size() <= 80
+        && data.createdAt is timestamp;
+    }
+
+    function isValidInventorySettings(data) {
+      return data.keys().hasAll([
+          'id', 'lowStockEmailEnabled', 'recipientEmail', 'lowStockThreshold',
+          'updatedBy', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'lowStockEmailEnabled', 'recipientEmail', 'lowStockThreshold',
+          'updatedBy', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.lowStockEmailEnabled is bool
+        && data.recipientEmail is string && data.recipientEmail.size() >= 3 && data.recipientEmail.size() <= 120
+        && (data.lowStockThreshold is int || data.lowStockThreshold is float)
+        && data.lowStockThreshold >= 1 && data.lowStockThreshold <= 100
+        && isValidId(data.updatedBy)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // --- Collection Rules ---
+
+    // Storefront Product Catalog (no PII; public read, admin write + atomic customer checkout stock deduction)
+    match /products/{productId} {
+      allow get: if isValidId(productId);
+      allow list: if resource.data.price >= 0;
+
+      allow create: if isValidId(productId)
+        && isValidProduct(incoming())
+        && incoming().id == productId
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isAdmin();
+
+      allow update: if isValidId(productId)
+        && isValidProduct(incoming())
+        && incoming().id == existing().id
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (
+            isAdmin()
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'name', 'sku', 'category', 'price', 'unit', 'stock',
+              'description', 'specs', 'imageKey', 'imageUrl', 'inStock', 'featured', 'updatedAt'
+            ])
+          )
+          || isValidCustomerStockPurchase(incoming(), existing())
+        );
+
+      allow delete: if isValidId(productId) && isAdmin();
+    }
+
+    // College Project Catalog (no PII; public read, admin-only write)
+    match /projects/{projectId} {
+      allow get: if isValidId(projectId);
+      allow list: if resource.data.estimatedPrice >= 0;
+
+      allow create: if isValidId(projectId)
+        && isValidProject(incoming())
+        && incoming().id == projectId
+        && incoming().createdBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isAdmin();
+
+      allow update: if isValidId(projectId)
+        && isValidProject(incoming())
+        && incoming().id == existing().id
+        && incoming().createdBy == existing().createdBy
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'title', 'domain', 'level', 'summary', 'componentsList',
+          'estimatedPrice', 'leadTimeDays', 'available', 'imageKey', 'imageUrl', 'updatedAt'
+        ])
+        && isAdmin();
+
+      allow delete: if isValidId(projectId) && isAdmin();
+    }
+
+    // Customer Orders (Strict PII Isolation)
+    match /orders/{orderId} {
+      allow get: if isValidId(orderId)
+        && isSignedIn()
+        && (existing().userId == request.auth.uid || isAdmin());
+
+      allow list: if isBootstrappedAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
+
+      allow create: if isVerifiedUser()
+        && isValidId(orderId)
+        && isValidOrder(incoming())
+        && incoming().id == orderId
+        && incoming().userId == request.auth.uid
+        && incoming().status == 'pending'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(orderId)
+        && isValidOrder(incoming())
+        && incoming().id == existing().id
+        && incoming().orderNumber == existing().orderNumber
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          (
+            isAdmin()
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          )
+          ||
+          (
+            existing().userId == request.auth.uid
+            && existing().status == 'pending'
+            && incoming().status == 'cancelled'
+            && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          )
+        );
+
+      allow delete: if isValidId(orderId) && isAdmin();
+    }
+
+    // Private Customer Profiles (Strict PII Isolation)
+    match /users/{userId} {
+      allow get: if isValidId(userId)
+        && isSignedIn()
+        && (request.auth.uid == userId || isAdmin());
+
+      allow list: if false;
+
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidUserProfile(incoming())
+        && incoming().uid == userId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'phone', 'defaultAddress', 'collegeName', 'updatedAt'
+        ]);
+
+      allow delete: if isValidId(userId) && isAdmin();
+    }
+
+    // Store Admins Whitelist
+    match /admins/{adminUid} {
+      allow get: if isValidId(adminUid)
+        && isVerifiedUser()
+        && (request.auth.uid == adminUid || isBootstrappedAdmin());
+
+      allow list: if isBootstrappedAdmin();
+
+      allow create: if isBootstrappedAdmin()
+        && isValidId(adminUid)
+        && isValidAdminRecord(incoming())
+        && incoming().uid == adminUid
+        && incoming().createdAt == request.time;
+
+      allow update: if isBootstrappedAdmin()
+        && isValidId(adminUid)
+        && isValidAdminRecord(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['email', 'label']);
+
+      allow delete: if isBootstrappedAdmin() && isValidId(adminUid);
+    }
+
+    // Store Operational Settings (Admin-only)
+    match /settings/{settingId} {
+      allow get: if isValidId(settingId) && isAdmin();
+      allow list: if false;
+
+      allow create: if isValidId(settingId)
+        && isValidInventorySettings(incoming())
+        && incoming().id == settingId
+        && incoming().updatedBy == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && isAdmin();
+
+      allow update: if isValidId(settingId)
+        && isValidInventorySettings(incoming())
+        && incoming().id == existing().id
+        && incoming().updatedBy == request.auth.uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'lowStockEmailEnabled', 'recipientEmail', 'lowStockThreshold', 'updatedBy', 'updatedAt'
+        ])
+        && isAdmin();
+
+      allow delete: if isValidId(settingId) && isAdmin();
+    }
+  }
+}

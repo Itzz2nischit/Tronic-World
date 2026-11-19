@@ -1,0 +1,489 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "An electronics component, microcontroller, sensor, module, or kit stocked at Tronic World Pune.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "sku": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 40
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "Microcontrollers",
+            "Sensors",
+            "Modules",
+            "Power & Relays",
+            "Passive & LEDs",
+            "College Kits"
+          ]
+        },
+        "price": {
+          "type": "number",
+          "description": "Unit price in INR"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "stock": {
+          "type": "number",
+          "description": "Available quantity in shop inventory"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 600
+        },
+        "specs": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "imageKey": {
+          "type": "string",
+          "enum": [
+            "arduino",
+            "esp32",
+            "raspberrypi",
+            "hall_ultrasonic",
+            "microcontrollers",
+            "sensors",
+            "power",
+            "robotics",
+            "bench"
+          ]
+        },
+        "imageUrl": {
+          "type": "string",
+          "maxLength": 120000,
+          "description": "Optional custom component photo URL or compressed JPEG thumbnail"
+        },
+        "inStock": {
+          "type": "boolean"
+        },
+        "featured": {
+          "type": "boolean"
+        },
+        "lastOrderId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Most recent order ID that atomically deducted stock during checkout"
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "sku",
+        "category",
+        "price",
+        "unit",
+        "stock",
+        "description",
+        "specs",
+        "imageKey",
+        "inStock",
+        "featured",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "CollegeProject": {
+      "title": "CollegeProject",
+      "description": "A pre-engineered school, diploma, or engineering college project build offered by Tronic World.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 140
+        },
+        "domain": {
+          "type": "string",
+          "enum": [
+            "IoT & WiFi",
+            "Robotics",
+            "Embedded",
+            "Power & Solar",
+            "Sensor Systems"
+          ]
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "School / Science",
+            "Diploma",
+            "BE / B.Tech"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "maxLength": 600
+        },
+        "componentsList": {
+          "type": "array",
+          "description": "Bounded list of up to 12 key BOM components"
+        },
+        "estimatedPrice": {
+          "type": "number"
+        },
+        "leadTimeDays": {
+          "type": "number"
+        },
+        "available": {
+          "type": "boolean"
+        },
+        "imageKey": {
+          "type": "string",
+          "enum": [
+            "arduino",
+            "esp32",
+            "raspberrypi",
+            "hall_ultrasonic",
+            "robotics",
+            "microcontrollers",
+            "sensors",
+            "power",
+            "bench"
+          ]
+        },
+        "imageUrl": {
+          "type": "string",
+          "maxLength": 120000
+        },
+        "createdBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "domain",
+        "level",
+        "summary",
+        "componentsList",
+        "estimatedPrice",
+        "leadTimeDays",
+        "available",
+        "imageKey",
+        "createdBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A customer order or college project kit booking placed with Tronic World Pune.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "orderNumber": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 32
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "customerName": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100
+        },
+        "customerPhone": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 20
+        },
+        "customerEmail": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "fulfillmentType": {
+          "type": "string",
+          "enum": [
+            "pickup_kharadi",
+            "delivery_pune"
+          ]
+        },
+        "deliveryAddress": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "collegeProjectNotes": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "items": {
+          "type": "array",
+          "description": "Bounded list of up to 25 ordered line items"
+        },
+        "subtotal": {
+          "type": "number"
+        },
+        "deliveryFee": {
+          "type": "number"
+        },
+        "totalAmount": {
+          "type": "number"
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": [
+            "pay_at_shop",
+            "cod_pune",
+            "upi_on_delivery"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "confirmed",
+            "packing",
+            "ready",
+            "completed",
+            "cancelled"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "orderNumber",
+        "userId",
+        "customerName",
+        "customerPhone",
+        "customerEmail",
+        "fulfillmentType",
+        "deliveryAddress",
+        "collegeProjectNotes",
+        "items",
+        "subtotal",
+        "deliveryFee",
+        "totalAmount",
+        "paymentMethod",
+        "status",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Private customer profile storing saved Pune delivery details and college affiliation.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "phone": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "defaultAddress": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "collegeName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "phone",
+        "defaultAddress",
+        "collegeName",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Authorized Tronic World store administrator record.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 120
+        },
+        "label": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 80
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "email",
+        "label",
+        "createdAt"
+      ]
+    },
+    "InventorySettings": {
+      "title": "InventorySettings",
+      "description": "Admin-configurable low-stock email alert settings stored in Firestore.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "lowStockEmailEnabled": {
+          "type": "boolean",
+          "description": "Whether automated email alerts are sent when stock hits 0 or drops below threshold"
+        },
+        "recipientEmail": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 120
+        },
+        "lowStockThreshold": {
+          "type": "number",
+          "description": "Minimum stock level below which low-stock alert emails trigger"
+        },
+        "updatedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "lowStockEmailEnabled",
+        "recipientEmail",
+        "lowStockThreshold",
+        "updatedBy",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Publicly readable catalog of electronics components and kits; writable only by verified Tronic World admins."
+    },
+    "/projects/{projectId}": {
+      "schema": { "$ref": "#/entities/CollegeProject" },
+      "description": "Publicly readable catalog of college robotics and IoT project builds; writable only by verified Tronic World admins."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Customer orders containing PII; readable only by the owning customer or verified admins."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private customer delivery and college info; accessible strictly to the owning user or verified admins."
+    },
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Store administrator whitelist; managed solely by the bootstrapped store owner."
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/InventorySettings" },
+      "description": "Store operational settings including automated low-stock email toggle; accessible strictly to verified admins."
+    }
+  }
+}
